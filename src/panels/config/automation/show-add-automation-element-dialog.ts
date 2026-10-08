@@ -16,6 +16,8 @@ export interface AddAutomationElementDialogParams {
   add: (key: string, target?: HassServiceTarget) => void;
   clipboardItem: string | undefined;
   clipboardPasteToastBottomOffset?: number;
+  /** Hide the building blocks tab, e.g. for nested trigger lists. */
+  hideBlocks?: boolean;
 }
 
 /** Get the target from the query parameters. */

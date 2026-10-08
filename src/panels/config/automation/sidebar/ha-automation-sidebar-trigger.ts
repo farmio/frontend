@@ -28,6 +28,7 @@ import type {
 import {
   getTriggerDomain,
   getTriggerObjectId,
+  isTriggerBuildingBlock,
   isTriggerList,
 } from "../../../../data/trigger";
 import type { HomeAssistant } from "../../../../types";
@@ -99,6 +100,12 @@ export default class HaAutomationSidebarTrigger extends LitElement {
       ) ||
       this.hass.localize(`component.${domain}.triggers.${triggerName}.name`);
 
+    const description = isTriggerBuildingBlock(type)
+      ? this.hass.localize(
+          `ui.panel.config.automation.editor.triggers.type.${type as LegacyTrigger["trigger"]}.description.picker`
+        )
+      : "";
+
     return html`
       <ha-automation-sidebar-card
         .hass=${this.hass}
@@ -119,7 +126,7 @@ export default class HaAutomationSidebarTrigger extends LitElement {
         <ha-dropdown-item
           slot="menu-items"
           value="rename"
-          .disabled=${this.disabled || type === "list"}
+          .disabled=${this.disabled}
         >
           <ha-svg-icon slot="icon" .path=${mdiRenameBox}></ha-svg-icon>
           <div class="overflow-label">
@@ -292,6 +299,11 @@ export default class HaAutomationSidebarTrigger extends LitElement {
             }
           </div>
         </ha-dropdown-item>
+        ${
+          description && !this.yamlMode
+            ? html`<div class="description">${description}</div>`
+            : nothing
+        }
         ${keyed(
           this.sidebarKey,
           html`<ha-automation-trigger-editor

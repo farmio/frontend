@@ -17,6 +17,7 @@ import { isTriggerList } from "../../../../data/trigger";
 import { haStyle } from "../../../../resources/styles";
 import type { HomeAssistant } from "../../../../types";
 import "../ha-automation-editor-warning";
+import { indentStyle } from "../styles";
 import "./types/ha-automation-trigger-platform";
 
 @customElement("ha-automation-trigger-editor")
@@ -34,6 +35,12 @@ export default class HaAutomationTriggerEditor extends LitElement {
 
   @property({ type: Boolean, attribute: "sidebar" }) public inSidebar = false;
 
+  @property({ type: Boolean }) public indent = false;
+
+  @property({ type: Boolean }) public narrow = false;
+
+  @property({ type: Boolean, reflect: true }) public selected = false;
+
   @property({ attribute: false }) public description?: TriggerDescription;
 
   @query("ha-yaml-editor") public yamlEditor?: HaYamlEditor;
@@ -47,8 +54,9 @@ export default class HaAutomationTriggerEditor extends LitElement {
       <div
         class=${classMap({
           "card-content": true,
-          disabled: this.disabled,
+          disabled: !this.indent && this.disabled,
           yaml: yamlMode,
+          indent: this.indent,
           card: !this.inSidebar,
         })}
       >
@@ -88,6 +96,9 @@ export default class HaAutomationTriggerEditor extends LitElement {
                           hass: this.hass,
                           trigger: this.trigger,
                           disabled: this.disabled,
+                          narrow: this.narrow,
+                          indent: this.indent,
+                          inSidebar: this.inSidebar,
                         })
                   }
                 </div>
@@ -120,6 +131,7 @@ export default class HaAutomationTriggerEditor extends LitElement {
   static get styles(): CSSResultGroup {
     return [
       haStyle,
+      indentStyle,
       css`
         .disabled {
           pointer-events: none;

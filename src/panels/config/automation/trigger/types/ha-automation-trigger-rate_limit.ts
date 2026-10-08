@@ -1,21 +1,24 @@
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, property, query } from "lit/decorators";
+import memoizeOne from "memoize-one";
 import { ensureArray } from "../../../../../common/array/ensure-array";
 import { fireEvent } from "../../../../../common/dom/fire_event";
+import type { LocalizeFunc } from "../../../../../common/translations/localize";
 import "../../../../../components/ha-form/ha-form";
 import type { SchemaUnion } from "../../../../../components/ha-form/types";
-import type { TriggerList } from "../../../../../data/automation";
+import type { RateLimitTrigger } from "../../../../../data/automation";
+import { RATE_LIMIT_PERIODS } from "../../../../../data/automation";
 import type { HomeAssistant } from "../../../../../types";
 import "../ha-automation-trigger";
 import type HaAutomationTrigger from "../ha-automation-trigger";
 import type { TriggerElement } from "../ha-automation-trigger-row";
 import { handleChangeEvent } from "../ha-automation-trigger-row";
 
-@customElement("ha-automation-trigger-list")
-export class HaTriggerList extends LitElement implements TriggerElement {
+@customElement("ha-automation-trigger-rate_limit")
+export class HaRateLimitTrigger extends LitElement implements TriggerElement {
   @property({ attribute: false }) public hass!: HomeAssistant;
 
-  @property({ attribute: false }) public trigger!: TriggerList;
+  @property({ attribute: false }) public trigger!: RateLimitTrigger;
 
   @property({ type: Boolean }) public disabled = false;
 
@@ -28,13 +31,40 @@ export class HaTriggerList extends LitElement implements TriggerElement {
   @query("ha-automation-trigger")
   private _triggerElement?: HaAutomationTrigger;
 
-  public static get defaultConfig(): TriggerList {
+  public static get defaultConfig(): RateLimitTrigger {
     return {
+      trigger: "rate_limit",
+      count: 1,
+      per: "day",
       triggers: [],
     };
   }
 
-  private _schema = [{ name: "alias", selector: { text: {} } }] as const;
+  private _schema = memoizeOne(
+    (localize: LocalizeFunc) =>
+      [
+        {
+          name: "count",
+          required: true,
+          selector: { number: { mode: "box", min: 1 } },
+        },
+        {
+          name: "per",
+          required: true,
+          selector: {
+            select: {
+              mode: "dropdown",
+              options: RATE_LIMIT_PERIODS.map((period) => ({
+                value: period,
+                label: localize(
+                  `ui.panel.config.automation.editor.triggers.type.rate_limit.periods.${period}`
+                ),
+              })),
+            },
+          },
+        },
+      ] as const
+  );
 
   protected render() {
     const triggers = ensureArray(this.trigger.triggers);
@@ -45,10 +75,10 @@ export class HaTriggerList extends LitElement implements TriggerElement {
           ? html`<ha-form
               .hass=${this.hass}
               .data=${this.trigger}
-              .schema=${this._schema}
+              .schema=${this._schema(this.hass.localize)}
               .disabled=${this.disabled}
               .computeLabel=${this._computeLabelCallback}
-              @value-changed=${this._aliasChanged}
+              @value-changed=${this._settingsChanged}
             ></ha-form>`
           : nothing
       }
@@ -73,22 +103,17 @@ export class HaTriggerList extends LitElement implements TriggerElement {
   }
 
   private _computeLabelCallback = (
-    schema: SchemaUnion<typeof this._schema>
+    schema: SchemaUnion<ReturnType<typeof this._schema>>
   ): string =>
     this.hass.localize(
-      `ui.panel.config.automation.editor.triggers.type.list.${schema.name}`
+      `ui.panel.config.automation.editor.triggers.type.rate_limit.${schema.name}`
     );
 
-  private _aliasChanged(ev: CustomEvent): void {
+  private _settingsChanged(ev: CustomEvent): void {
     ev.stopPropagation();
-    const alias = ev.detail.value.alias as string | undefined;
-    const value = { ...this.trigger };
-    if (alias) {
-      value.alias = alias;
-    } else {
-      delete value.alias;
-    }
-    fireEvent(this, "value-changed", { value });
+    fireEvent(this, "value-changed", {
+      value: { ...this.trigger, ...ev.detail.value },
+    });
   }
 
   private _valueChanged(ev: CustomEvent): void {
@@ -105,6 +130,6 @@ export class HaTriggerList extends LitElement implements TriggerElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    "ha-automation-trigger-list": HaTriggerList;
+    "ha-automation-trigger-rate_limit": HaRateLimitTrigger;
   }
 }

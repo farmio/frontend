@@ -22,6 +22,7 @@ import {
 import { describeTrigger } from "../../../../../data/automation_i18n";
 import { fullEntitiesContext } from "../../../../../data/context";
 import type { EntityRegistryEntry } from "../../../../../data/entity/entity_registry";
+import { isTriggerList } from "../../../../../data/trigger";
 import type { HomeAssistant } from "../../../../../types";
 import { rowStyles } from "../../styles";
 
@@ -107,7 +108,9 @@ export class HaTriggerCondition extends LitElement {
                 <span class="trigger-index-badge">${option.index + 1}</span>
                 <ha-trigger-icon
                   .trigger=${
-                    "trigger" in option.trigger ? option.trigger.trigger : ""
+                    isTriggerList(option.trigger)
+                      ? "list"
+                      : option.trigger.trigger
                   }
                 ></ha-trigger-icon>
               </span>

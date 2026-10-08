@@ -20,6 +20,7 @@ import type {
 import type { Action, Field, MODES } from "./script";
 import { migrateAutomationAction } from "./script";
 import type { TriggerDescription } from "./trigger";
+import { hasNestedTriggers, isTriggerList } from "./trigger";
 
 export const AUTOMATION_DEFAULT_MODE: (typeof MODES)[number] = "single";
 export const AUTOMATION_DEFAULT_MAX = 10;
@@ -89,6 +90,19 @@ export interface ContextConstraint {
 }
 
 export interface TriggerList {
+  triggers: Trigger | Trigger[] | undefined;
+  alias?: string;
+  id?: string;
+}
+
+export const RATE_LIMIT_PERIODS = ["hour", "day", "week", "month"] as const;
+
+export type RateLimitPeriod = (typeof RATE_LIMIT_PERIODS)[number];
+
+export interface RateLimitTrigger extends BaseTrigger {
+  trigger: "rate_limit";
+  count: number;
+  per: RateLimitPeriod;
   triggers: Trigger | Trigger[] | undefined;
 }
 
@@ -237,7 +251,8 @@ export type LegacyTrigger =
   | TemplateTrigger
   | EventTrigger
   | DeviceTrigger
-  | CalendarTrigger;
+  | CalendarTrigger
+  | RateLimitTrigger;
 
 export type Trigger = LegacyTrigger | TriggerList | PlatformTrigger;
 
@@ -573,10 +588,11 @@ export const flattenTriggers = (
   const flatTriggers: Trigger[] = [];
 
   ensureArray(triggers).forEach((t) => {
-    if ("triggers" in t) {
-      if (t.triggers) {
-        flatTriggers.push(...flattenTriggers(t.triggers));
-      }
+    if (isTriggerList(t)) {
+      // A trigger group is referenced as a whole, not by its children
+      flatTriggers.push(t);
+    } else if (hasNestedTriggers(t)) {
+      flatTriggers.push(...flattenTriggers(t.triggers));
     } else {
       flatTriggers.push(t);
     }

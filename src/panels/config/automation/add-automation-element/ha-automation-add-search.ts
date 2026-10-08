@@ -52,6 +52,7 @@ import {
   type FloorComboBoxItem,
 } from "../../../../data/area_floor_picker";
 import { CONDITION_BUILDING_BLOCKS_GROUP } from "../../../../data/condition";
+import { TRIGGER_BUILDING_BLOCKS_GROUP } from "../../../../data/trigger";
 import type { ConfigEntry } from "../../../../data/config_entries";
 import { labelsContext, relatedContext } from "../../../../data/context";
 import {
@@ -146,6 +147,9 @@ export class HaAutomationAddSearch extends LitElement {
 
   @property({ type: Boolean }) public narrow = false;
 
+  @property({ type: Boolean, attribute: "hide-blocks" }) public hideBlocks =
+    false;
+
   @property({ attribute: false })
   public convertToItem!: (
     key: string,
@@ -236,6 +240,7 @@ export class HaAutomationAddSearch extends LitElement {
       this.filter,
       this.configEntryLookup,
       this.items,
+      this.hideBlocks,
       this._selectedSearchSection,
       this._relatedIdSets
     );
@@ -291,7 +296,7 @@ export class HaAutomationAddSearch extends LitElement {
   private _renderSections() {
     const searchSections: ("separator" | SearchSection)[] = ["item"];
 
-    if (this.addElementType !== "trigger") {
+    if (!this.hideBlocks) {
       searchSections.push("block");
     }
 
@@ -486,6 +491,7 @@ export class HaAutomationAddSearch extends LitElement {
       this.filter,
       this.configEntryLookup,
       this.items,
+      this.hideBlocks,
       this._selectedSearchSection,
       this._relatedIdSets
     );
@@ -557,6 +563,7 @@ export class HaAutomationAddSearch extends LitElement {
       searchTerm: string,
       configEntryLookup: Record<string, ConfigEntry>,
       automationItems: AddAutomationElementListItem[],
+      hideBlocks: boolean,
       selectedSection?: SearchSection,
       relatedIdSets?: RelatedIdSets
     ) => {
@@ -590,16 +597,13 @@ export class HaAutomationAddSearch extends LitElement {
         }
       }
 
-      if (
-        type !== "trigger" &&
-        (!selectedSection || selectedSection === "block")
-      ) {
+      if (!hideBlocks && (!selectedSection || selectedSection === "block")) {
         const groups =
           type === "action"
             ? ACTION_BUILDING_BLOCKS_GROUP
             : type === "condition"
               ? CONDITION_BUILDING_BLOCKS_GROUP
-              : {};
+              : TRIGGER_BUILDING_BLOCKS_GROUP;
 
         let blocks = this._convertItemsToComboBoxItems(
           Object.keys(groups).map((key) =>

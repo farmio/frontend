@@ -4,7 +4,7 @@ import {
   mdiClockOutline,
   mdiCodeBraces,
   mdiDevices,
-  mdiFormatListBulleted,
+  mdiFormatListGroup,
   mdiGestureDoubleTap,
   mdiMapMarker,
   mdiMapMarkerRadius,
@@ -12,6 +12,7 @@ import {
   mdiMicrophoneMessage,
   mdiNfcVariant,
   mdiNumeric,
+  mdiSpeedometerSlow,
   mdiStateMachine,
   mdiSwapHorizontal,
   mdiWeatherSunny,
@@ -49,7 +50,8 @@ export const TRIGGER_ICONS = {
   webhook: mdiWebhook,
   persistent_notification: mdiMessageAlert,
   zone: mdiMapMarkerRadius,
-  list: mdiFormatListBulleted,
+  list: mdiFormatListGroup,
+  rate_limit: mdiSpeedometerSlow,
 };
 
 @customElement("ha-trigger-icon")

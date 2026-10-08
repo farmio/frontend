@@ -188,6 +188,10 @@ const tryDescribeTrigger = (
   options?: DescribeOptions
 ) => {
   if (isTriggerList(trigger)) {
+    if (trigger.alias && !options?.ignoreAlias) {
+      return trigger.alias;
+    }
+
     const triggers = ensureArray(trigger.triggers);
 
     if (!triggers || triggers.length === 0) {
@@ -660,6 +664,14 @@ const describeLegacyTrigger = (
           }
         ),
       }
+    );
+  }
+
+  // Rate limit Trigger
+  if (trigger.trigger === "rate_limit") {
+    return hass.localize(
+      `${triggerTranslationBaseKey}.rate_limit.description.full`,
+      { count: trigger.count, per: trigger.per }
     );
   }
 

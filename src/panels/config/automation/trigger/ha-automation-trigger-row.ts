@@ -23,6 +23,7 @@ import { dump } from "js-yaml";
 import type { CSSResultGroup, PropertyValues, TemplateResult } from "lit";
 import { LitElement, html, nothing } from "lit";
 import { customElement, property, query, state } from "lit/decorators";
+import { classMap } from "lit/directives/class-map";
 import memoizeOne from "memoize-one";
 import { consume } from "../../../../common/decorators/consume";
 import { ensureArray } from "../../../../common/array/ensure-array";
@@ -63,7 +64,10 @@ import { fullEntitiesContext } from "../../../../data/context";
 import type { EntityRegistryEntry } from "../../../../data/entity/entity_registry";
 import type { TargetSelector } from "../../../../data/selector";
 import type { TriggerDescriptions } from "../../../../data/trigger";
-import { isTriggerList } from "../../../../data/trigger";
+import {
+  isTriggerBuildingBlock,
+  isTriggerList,
+} from "../../../../data/trigger";
 import {
   showAlertDialog,
   showPromptDialog,
@@ -95,6 +99,7 @@ import "./types/ha-automation-trigger-list";
 import "./types/ha-automation-trigger-numeric_state";
 import "./types/ha-automation-trigger-persistent_notification";
 import "./types/ha-automation-trigger-platform";
+import "./types/ha-automation-trigger-rate_limit";
 import "./types/ha-automation-trigger-state";
 import "./types/ha-automation-trigger-sun";
 import "./types/ha-automation-trigger-tag";
@@ -139,6 +144,8 @@ export default class HaAutomationTriggerRow extends LitElement {
 
   @property({ type: Boolean }) public disabled = false;
 
+  @property({ type: Boolean }) public root = false;
+
   @property({ type: Boolean }) public first?: boolean;
 
   @property({ type: Boolean }) public last?: boolean;
@@ -154,6 +161,8 @@ export default class HaAutomationTriggerRow extends LitElement {
   public sortSelected = false;
 
   @state() private _yamlMode = false;
+
+  @state() private _collapsed = true;
 
   @state() private _triggered = false;
 
@@ -222,6 +231,7 @@ export default class HaAutomationTriggerRow extends LitElement {
       (option) => option.trigger === this.trigger
     )?.index;
     const type = this._getType(this.trigger, this.triggerDescriptions);
+    const buildingBlock = isTriggerBuildingBlock(type);
 
     const supported = this._uiSupported(type);
 
@@ -252,53 +262,57 @@ export default class HaAutomationTriggerRow extends LitElement {
       250
     );
 
+    const indexBadge =
+      triggerIndex !== undefined
+        ? html`
+            <span
+              id="trigger-index-badge-${triggerIndex}"
+              tabindex=${this._triggers?.showIndices ? "0" : "-1"}
+              class="trigger-index-badge ${
+                this._triggers?.showIndices ? "" : "hidden"
+              }"
+              aria-label=${this.hass.localize(
+                "ui.panel.config.automation.editor.triggers.trigger_index_aria_label",
+                { number: triggerIndex + 1 }
+              )}
+              aria-hidden=${this._triggers?.showIndices ? "false" : "true"}
+              >${triggerIndex + 1}</span
+            >
+            ${
+              this._triggers?.showIndices
+                ? html`<ha-tooltip for="trigger-index-badge-${triggerIndex}"
+                    ><p>
+                      ${this.hass.localize(
+                        "ui.panel.config.automation.editor.triggers.trigger_index_tooltip"
+                      )}
+                    </p></ha-tooltip
+                  >`
+                : nothing
+            }
+          `
+        : nothing;
+
     return html`
-      <div slot="leading-icon" class="trigger-leading">
-        ${
-          triggerIndex !== undefined
-            ? html`
-                <span
-                  id="trigger-index-badge-${triggerIndex}"
-                  tabindex=${this._triggers?.showIndices ? "0" : "-1"}
-                  class="trigger-index-badge ${
-                    this._triggers?.showIndices ? "" : "hidden"
-                  }"
-                  aria-label=${this.hass.localize(
-                    "ui.panel.config.automation.editor.triggers.trigger_index_aria_label",
-                    { number: triggerIndex + 1 }
-                  )}
-                  aria-hidden=${this._triggers?.showIndices ? "false" : "true"}
-                  >${triggerIndex + 1}</span
-                >
-                ${
-                  this._triggers?.showIndices
-                    ? html`<ha-tooltip for="trigger-index-badge-${triggerIndex}"
-                        ><p>
-                          ${this.hass.localize(
-                            "ui.panel.config.automation.editor.triggers.trigger_index_tooltip"
-                          )}
-                        </p></ha-tooltip
-                      >`
-                    : nothing
-                }
-              `
-            : nothing
-        }
-        ${
-          type === "list"
-            ? html`<ha-svg-icon
-                class="trigger-icon"
-                .path=${TRIGGER_ICONS[type]}
-              ></ha-svg-icon>`
-            : html`<ha-trigger-icon
+      ${
+        buildingBlock
+          ? html`<ha-svg-icon
+              id="trigger-icon"
+              slot="leading-icon"
+              class="trigger-icon"
+              .path=${TRIGGER_ICONS[type]}
+            ></ha-svg-icon>`
+          : html`<div slot="leading-icon" class="trigger-leading">
+              ${indexBadge}
+              <ha-trigger-icon
                 .hass=${this.hass}
                 .trigger=${
                   (this.trigger as Exclude<Trigger, TriggerList>).trigger
                 }
-              ></ha-trigger-icon>`
-        }
-      </div>
+              ></ha-trigger-icon>
+            </div>`
+      }
       <h3 slot="header">
+        ${buildingBlock ? indexBadge : nothing}
         ${capitalizeFirstLetter(
           describeTrigger(this.trigger, this.hass, this._entityReg)
         )}
@@ -391,10 +405,7 @@ export default class HaAutomationTriggerRow extends LitElement {
           .label=${this.hass.localize("ui.common.menu")}
           .path=${mdiDotsVertical}
         ></ha-icon-button>
-        <ha-dropdown-item
-          value="rename"
-          .disabled=${this.disabled || type === "list"}
-        >
+        <ha-dropdown-item value="rename" .disabled=${this.disabled}>
           <ha-svg-icon slot="icon" .path=${mdiRenameBox}></ha-svg-icon>
           ${this._renderOverflowLabel(
             this.hass.localize(
@@ -598,22 +609,34 @@ export default class HaAutomationTriggerRow extends LitElement {
   protected render() {
     if (!this.trigger) return nothing;
 
+    const type = this._getType(this.trigger, this.triggerDescriptions);
+    const buildingBlock = isTriggerBuildingBlock(type);
+
     return html`
-      <ha-card outlined class=${this._selected ? "selected" : ""}>
+      <ha-card
+        outlined
+        class=${classMap({
+          selected: this._selected,
+          "building-block":
+            this.optionsInSidebar && buildingBlock && !this._collapsed,
+        })}
+      >
         ${
           this.optionsInSidebar
             ? html`<ha-automation-row
                 .disabled=${
                   "enabled" in this.trigger && this.trigger.enabled === false
                 }
+                .leftChevron=${buildingBlock}
+                .collapsed=${this._collapsed}
                 .selected=${this._selected}
                 .highlight=${this.highlight}
+                .buildingBlock=${buildingBlock}
                 .sortSelected=${this.sortSelected}
                 .dim=${this._triggered}
                 @click=${this._toggleSidebar}
-                >${
-                  this._selected ? "selected" : nothing
-                }${this._renderRow()}</ha-automation-row
+                @toggle-collapsed=${this._toggleCollapse}
+                >${this._renderRow()}</ha-automation-row
               >`
             : html`
                 <ha-expansion-panel
@@ -625,6 +648,22 @@ export default class HaAutomationTriggerRow extends LitElement {
               `
         }
       </ha-card>
+
+      ${
+        this.optionsInSidebar && buildingBlock
+          ? html`<ha-automation-trigger-editor
+              class=${this._collapsed ? "hidden" : ""}
+              .hass=${this.hass}
+              .trigger=${this.trigger}
+              .disabled=${this.disabled}
+              .uiSupported=${this._uiSupported(type)}
+              indent
+              .selected=${this._selected}
+              .narrow=${this.narrow}
+              @value-changed=${this._onValueChange}
+            ></ha-automation-trigger-editor>`
+          : nothing
+      }
     `;
   }
 
@@ -663,6 +702,14 @@ export default class HaAutomationTriggerRow extends LitElement {
         .interactive=${interactive}
       ></ha-automation-row-targets>`
   );
+
+  protected firstUpdated(changedProperties: PropertyValues<this>): void {
+    super.firstUpdated(changedProperties);
+
+    if (this.root) {
+      this._collapsed = false;
+    }
+  }
 
   protected willUpdate(changedProperties: PropertyValues) {
     // on yaml toggle --> clear warnings
@@ -766,6 +813,17 @@ export default class HaAutomationTriggerRow extends LitElement {
     if (!this._yamlMode) {
       this._yamlMode = true;
     }
+  }
+
+  private _onValueChange(event: CustomEvent) {
+    // reload sidebar if sort, deleted,... happend
+    if (this._selected && this.optionsInSidebar) {
+      this.openSidebar(event.detail.value);
+    }
+  }
+
+  private _toggleCollapse() {
+    this._collapsed = !this._collapsed;
   }
 
   private _toggleSidebar(ev: Event) {
@@ -916,7 +974,6 @@ export default class HaAutomationTriggerRow extends LitElement {
   }
 
   private _renameTrigger = async (): Promise<void> => {
-    if (isTriggerList(this.trigger)) return;
     const alias = await showPromptDialog(this, {
       title: this.hass.localize(
         "ui.panel.config.automation.editor.triggers.change_alias"
@@ -1064,9 +1121,18 @@ export default class HaAutomationTriggerRow extends LitElement {
   };
 
   public expand() {
+    if (this.optionsInSidebar) {
+      this._collapsed = false;
+      return;
+    }
+
     this.updateComplete.then(() => {
       this.shadowRoot!.querySelector("ha-expansion-panel")!.expanded = true;
     });
+  }
+
+  public collapse() {
+    this._collapsed = true;
   }
 
   private _getType = memoizeOne(

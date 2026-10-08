@@ -11,6 +11,7 @@ import type { TriggerCondition } from "../../../../data/automation";
 import { describeTrigger } from "../../../../data/automation_i18n";
 import { fullEntitiesContext } from "../../../../data/context";
 import type { EntityRegistryEntry } from "../../../../data/entity/entity_registry";
+import { isTriggerList } from "../../../../data/trigger";
 import type { HomeAssistant } from "../../../../types";
 import {
   automationTriggerContext,
@@ -77,7 +78,7 @@ export class HaAutomationTriggerReferences extends LitElement {
                 : nothing
             }
             <ha-trigger-icon
-              .trigger=${"trigger" in option.trigger ? option.trigger.trigger : ""}
+              .trigger=${isTriggerList(option.trigger) ? "list" : option.trigger.trigger}
             ></ha-trigger-icon>
             <span class="trigger-reference-label">
               ${capitalizeFirstLetter(

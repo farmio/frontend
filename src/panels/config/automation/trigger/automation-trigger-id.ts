@@ -13,7 +13,7 @@ import type {
   TriggerCondition,
 } from "../../../../data/automation";
 import { getActionType } from "../../../../data/script";
-import { isTriggerList } from "../../../../data/trigger";
+import { hasNestedTriggers, isTriggerList } from "../../../../data/trigger";
 import type {
   Action,
   ChooseAction,
@@ -30,7 +30,7 @@ export interface TriggerIdOption {
   /** Existing ID, or a candidate that is stored on the trigger when selected. */
   id: string;
   trigger: Trigger;
-  /** Zero-based position among flattened leaf triggers; list wrappers are excluded. */
+  /** Zero-based position among referenceable triggers: leaf triggers and trigger groups. */
   index: number;
   /** The ID is an unstored candidate, not an existing ID already on the trigger. */
   draft: boolean;
@@ -59,9 +59,8 @@ export const automationTriggerContext =
 export const isGeneratedTriggerId = (id: unknown): id is string =>
   typeof id === "string" && id.startsWith(GENERATED_TRIGGER_ID_PREFIX);
 
-/** Read a leaf trigger's stored ID; list wrappers do not have selectable IDs. */
-const getTriggerId = (trigger: Trigger): string | undefined =>
-  isTriggerList(trigger) ? undefined : trigger.id;
+/** Read a referenceable trigger's stored ID; a trigger group is referenced as a whole. */
+const getTriggerId = (trigger: Trigger): string | undefined => trigger.id;
 
 /** Collect each ID that occurs more than once. */
 const duplicateIds = (ids: string[]) =>
@@ -129,7 +128,8 @@ export const getTriggerIdOptions = (
 };
 
 /**
- * Transform leaf triggers recursively, retaining list wrappers and scalar/array shape.
+ * Transform referenceable triggers recursively, retaining rate limit wrappers and
+ * scalar/array shape. A trigger group is passed to the callback as a whole.
  * Copy only changed branches; callbacks must return replacements rather than mutate leaves.
  */
 const walkLeafTriggers = (
@@ -147,7 +147,7 @@ const walkLeafTriggers = (
     });
     return changed ? mapped : triggers;
   }
-  if (isTriggerList(triggers)) {
+  if (!isTriggerList(triggers) && hasNestedTriggers(triggers)) {
     const newInner = triggers.triggers
       ? (walkLeafTriggers(triggers.triggers, callback) as Trigger | Trigger[])
       : triggers.triggers;
@@ -371,27 +371,24 @@ export const updateTriggerCondition = (
 };
 
 /**
- * Recursively strip generated IDs from a trigger or trigger list. Manual IDs
- * are preserved. Trigger-list wrappers keep their structure; their inner
- * triggers are stripped the same way.
+ * Recursively strip generated IDs from a trigger and any nested triggers. Manual
+ * IDs are preserved. Trigger groups and rate limits keep their structure; their
+ * inner triggers are stripped the same way.
  */
 export const stripGeneratedTriggerIds = (trigger: Trigger): Trigger => {
-  if (isTriggerList(trigger)) {
-    if (!trigger.triggers) {
-      return trigger;
-    }
+  let result = trigger;
+  if (hasNestedTriggers(trigger) && trigger.triggers) {
     const newInner = Array.isArray(trigger.triggers)
       ? trigger.triggers.map(stripGeneratedTriggerIds)
       : stripGeneratedTriggerIds(trigger.triggers);
-    if (newInner === trigger.triggers) {
-      return trigger;
+    if (newInner !== trigger.triggers) {
+      result = { ...trigger, triggers: newInner };
     }
-    return { ...trigger, triggers: newInner };
   }
-  if (!trigger.id || !isGeneratedTriggerId(trigger.id)) {
-    return trigger;
+  if (!result.id || !isGeneratedTriggerId(result.id)) {
+    return result;
   }
-  const { id: _id, ...rest } = trigger;
+  const { id: _id, ...rest } = result;
   return rest as Trigger;
 };
 
@@ -411,7 +408,6 @@ export const cleanupUnusedGeneratedTriggerIds = (
   let changed = false;
   const newTriggers = walkLeafTriggers(config.triggers, (trigger) => {
     if (
-      isTriggerList(trigger) ||
       !trigger.id ||
       !isGeneratedTriggerId(trigger.id) ||
       referencedIds.has(trigger.id)
@@ -507,9 +503,6 @@ export const makeDuplicateTriggerIdsUnique = (
   const triggers = walkLeafTriggers(config.triggers, (trigger) => {
     if (assignments.has(trigger)) {
       return { ...trigger, id: assignments.get(trigger) };
-    }
-    if (isTriggerList(trigger)) {
-      return trigger;
     }
     const id = getTriggerId(trigger);
     if (id && unreferencedDuplicates.has(id)) {

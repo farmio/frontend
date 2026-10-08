@@ -20,7 +20,10 @@ import {
 } from "../../../../data/automation";
 import { triggerDescriptionsContext } from "../../../../data/context";
 import type { TriggerDescriptions } from "../../../../data/trigger";
-import { isTriggerList } from "../../../../data/trigger";
+import {
+  isTriggerList,
+  TRIGGER_BUILDING_BLOCKS,
+} from "../../../../data/trigger";
 import { EDITOR_SAVE_FAB_TOAST_BOTTOM_OFFSET } from "../editor-toast";
 import {
   getAddAutomationElementTargetFromQuery,
@@ -86,6 +89,7 @@ export default class HaAutomationTrigger extends AutomationSortableListMixin<Tri
             (trigger) => this.getKey(trigger),
             (trg, idx) => html`
               <ha-automation-trigger-row
+                .root=${this.root}
                 .sortableData=${trg}
                 .index=${idx}
                 .first=${idx === 0}
@@ -154,6 +158,8 @@ export default class HaAutomationTrigger extends AutomationSortableListMixin<Tri
     showAddAutomationElementDialog(this, {
       type: "trigger",
       add: this._addTrigger,
+      // Building blocks can't be nested (yet), so only offer them at the root
+      hideBlocks: !this.root,
       clipboardItem: !this._clipboard?.trigger
         ? undefined
         : isTriggerList(this._clipboard.trigger)
@@ -227,15 +233,22 @@ export default class HaAutomationTrigger extends AutomationSortableListMixin<Tri
       changedProps.has("triggers") &&
       (this.focusLastItemOnChange || this.focusItemIndexOnChange !== undefined)
     ) {
+      const mode = this.focusLastItemOnChange ? "new" : "moved";
+
       const row = this.shadowRoot!.querySelector<HaAutomationTriggerRow>(
-        `ha-automation-trigger-row:${this.focusLastItemOnChange ? "last-of-type" : `nth-of-type(${this.focusItemIndexOnChange! + 1})`}`
+        `ha-automation-trigger-row:${mode === "new" ? "last-of-type" : `nth-of-type(${this.focusItemIndexOnChange! + 1})`}`
       )!;
 
       this.focusLastItemOnChange = false;
       this.focusItemIndexOnChange = undefined;
 
       row.updateComplete.then(() => {
-        if (this.optionsInSidebar) {
+        const type = isTriggerList(row.trigger) ? "list" : row.trigger.trigger;
+        // on new trigger open the settings in the sidebar, except for building blocks
+        if (
+          this.optionsInSidebar &&
+          (!TRIGGER_BUILDING_BLOCKS.includes(type) || mode === "moved")
+        ) {
           row.openSidebar();
           if (this.narrow) {
             row.scrollIntoView({
@@ -243,11 +256,16 @@ export default class HaAutomationTrigger extends AutomationSortableListMixin<Tri
               behavior: "smooth",
             });
           }
-        } else {
+        }
+
+        if (mode === "new") {
           row.expand();
+          row.markAsNew();
+        }
+
+        if (!this.optionsInSidebar) {
           row.focus();
         }
-        row.markAsNew();
       });
     }
   }

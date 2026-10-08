@@ -5476,12 +5476,12 @@
             "triggers": {
               "name": "Triggers",
               "header": "When",
-              "description": "A trigger is a specific event happening in or around your home, for example: ''When the sun sets''. Any trigger added here will start your automation.",
+              "description": "A trigger is a specific event happening in or around your home, for example: ''When the sun sets''. Any trigger added here will start your automation. You can use building blocks to group triggers or limit how often they run.",
               "learn_more": "Learn more about triggers",
               "triggered": "Triggered",
               "add": "Add trigger",
               "empty_search": {
-                "global": "No triggers and targets found for {term}",
+                "global": "No triggers, blocks and targets found for {term}",
                 "item": "No triggers found for {term}"
               },
               "id": "Trigger ID",
@@ -5653,6 +5653,21 @@
                     "full": "When a persistent notification is updated"
                   }
                 },
+                "rate_limit": {
+                  "label": "Rate limit",
+                  "count": "Maximum runs",
+                  "per": "Per",
+                  "periods": {
+                    "hour": "Hour",
+                    "day": "Day",
+                    "week": "Week",
+                    "month": "Month"
+                  },
+                  "description": {
+                    "picker": "Limits how often the triggers inside can start the automation.",
+                    "full": "Run at most {count, plural,\n  =1 {once}\n  =2 {twice}\n  other {{count} times}\n} per {per, select,\n  hour {hour}\n  day {day}\n  week {week}\n  month {month}\n  other {{per}}\n}"
+                  }
+                },
                 "sun": {
                   "label": "Sun",
                   "event": "[%key:ui::panel::config::automation::editor::triggers::type::homeassistant::event%]",
@@ -5764,10 +5779,12 @@
                   }
                 },
                 "list": {
-                  "label": "List",
+                  "label": "Trigger group",
+                  "alias": "Group name",
                   "description": {
-                    "no_trigger": "When any trigger matches",
-                    "full": "When any of {count} {count, plural,\n  one {trigger}\n other {triggers}\n} triggers"
+                    "picker": "Groups triggers so they can be referenced as one.",
+                    "no_trigger": "When any trigger in the group matches",
+                    "full": "When any of {count} {count, plural,\n  one {trigger}\n other {triggers}\n} in the group"
                   }
                 }
               }

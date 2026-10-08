@@ -109,6 +109,7 @@ import {
 } from "../../../data/target";
 import type { TriggerDescriptions } from "../../../data/trigger";
 import {
+  TRIGGER_BUILDING_BLOCKS_GROUP,
   TRIGGER_COLLECTIONS,
   getTriggerDomain,
   getTriggerObjectId,
@@ -598,7 +599,7 @@ class DialogAddAutomationElement
       },
     ];
 
-    if (this._params?.type !== "trigger") {
+    if (!this._params?.hideBlocks) {
       tabButtons.push({
         label: this.hass.localize("ui.panel.config.automation.editor.blocks"),
         value: "blocks",
@@ -678,6 +679,7 @@ class DialogAddAutomationElement
                 .manifests=${this._manifests}
                 .narrow=${this._narrow}
                 .addElementType=${this._params!.type}
+                .hideBlocks=${this._params!.hideBlocks}
                 .items=${this._items(
                   automationElementType,
                   this.hass.localize,
@@ -1196,7 +1198,9 @@ class DialogAddAutomationElement
       const groups =
         type === "action"
           ? ACTION_BUILDING_BLOCKS_GROUP
-          : CONDITION_BUILDING_BLOCKS_GROUP;
+          : type === "condition"
+            ? CONDITION_BUILDING_BLOCKS_GROUP
+            : TRIGGER_BUILDING_BLOCKS_GROUP;
 
       const result = Object.entries(groups).map(([key, options]) =>
         this._convertToItem(key, options, type, localize)

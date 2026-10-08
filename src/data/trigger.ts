@@ -54,8 +54,27 @@ export const TRIGGER_COLLECTIONS: AutomationElementGroupCollection[] = [
   },
 ] as const;
 
+export const TRIGGER_BUILDING_BLOCKS_GROUP = {
+  list: {},
+  rate_limit: {},
+};
+
+export const TRIGGER_BUILDING_BLOCKS = ["list"];
+
+// Building blocks whose sidebar settings open right after adding them
+export const TRIGGER_COMBINED_BLOCKS = ["rate_limit"];
+
 export const isTriggerList = (trigger: Trigger): trigger is TriggerList =>
-  "triggers" in trigger;
+  "triggers" in trigger && !("trigger" in trigger);
+
+/** Any trigger wrapping child triggers: a trigger group or a rate limit. */
+export const hasNestedTriggers = (
+  trigger: Trigger
+): trigger is Trigger & Pick<TriggerList, "triggers"> => "triggers" in trigger;
+
+export const isTriggerBuildingBlock = (type: string): boolean =>
+  TRIGGER_BUILDING_BLOCKS.includes(type) ||
+  TRIGGER_COMBINED_BLOCKS.includes(type);
 
 export interface TriggerDescription {
   target?: TargetSelector["target"];
